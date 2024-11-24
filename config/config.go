@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -13,6 +12,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Logger   Logger         `mapstructure:"logger"`
 	Server   ServerConfig   `mapstructure:"server"`
+	MusicApi string         `mapstructure:"music_api"`
 }
 
 type DatabaseConfig struct {
@@ -29,9 +29,6 @@ type ServerConfig struct {
 	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 	Port         string        `mapstructure:"port"`
-	PprofPort    string        `mapstructure:"pprof_port"`
-	Debug        bool          `mapstructure:"debug"`
-	ExternalMusicAPI string    `mapstructure:"external_music_api"`
 }
 
 type Logger struct {
@@ -40,14 +37,6 @@ type Logger struct {
 	DisableStacktrace bool   `mapstructure:"disable_stacktrace"`
 	Encoding          string `mapstructure:"encoding"`
 	Level             string `mapstructure:"level"`
-}
-
-type PostgresConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	DBName   string
 }
 
 func LoadConfig(filename string) (*viper.Viper, error) {
@@ -85,28 +74,9 @@ func GetConfigPath(configPath string) string {
 	return "config"
 }
 
-func (p *PostgresConfig) DSN() string {
+func (p *DatabaseConfig) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		p.Host, p.Port, p.User, p.Password, p.DBName,
 	)
-}
-
-func getEnv(key, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return defaultValue
-}
-
-func LoadDatabaseConfig() (*PostgresConfig, error) {
-	cfg := &PostgresConfig{
-		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     getEnv("DB_PORT", "5432"),
-		User:     getEnv("DB_USER", "postgres"),
-		Password: getEnv("DB_PASSWORD", "postgres"),
-		DBName:   getEnv("DB_NAME", "musiclib"),
-	}
-
-	return cfg, nil
 }

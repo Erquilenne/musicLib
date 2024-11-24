@@ -19,7 +19,7 @@
       "read_timeout": 5,
       "write_timeout": 5,
       "port": ":5000",
-      "pprof_port": ":5555",
       "debug": false
-    }
+    },
+    "music_api": "example.com"
 }
