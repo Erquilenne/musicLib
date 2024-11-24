@@ -2,12 +2,13 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"musiclib/config"
 	"musiclib/internal/models"
 	"musiclib/internal/song"
 	"musiclib/pkg/logger"
-	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -30,14 +31,19 @@ func NewSongHandlers(cfg *config.Config, logger logger.Logger, repo song.Reposit
 	return &songHandlers{cfg: cfg, logger: logger, songRepo: repo}
 }
 
-// Create godoc
-// @Summary Get list
-// @Description Get sorted list of songs
-// @Tags Songs
-// @Accept json
-// @Produce json
-// @Success 201 {array} models.Song
-// @Router /list/ [get]
+// @Summary     List songs
+// @Description Get paginated and sorted list of songs
+// @Tags        songs
+// @Accept      json
+// @Produce     json
+// @Param       sort_by query string false "Field to sort by (default: id)"
+// @Param       sort_order query string false "Sort order: asc or desc (default: asc)"
+// @Param       limit query int false "Number of items to return (default: 10)"
+// @Param       offset query int false "Number of items to skip (default: 0)"
+// @Success     200 {array} models.Song
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+// @Router      /api/v1/songs/list [get]
 func (h *songHandlers) GetList(w http.ResponseWriter, r *http.Request) {
 	// Get query parameters for sorting and pagination
 	sortBy := r.URL.Query().Get("sort_by")
@@ -101,17 +107,18 @@ func (h *songHandlers) GetList(w http.ResponseWriter, r *http.Request) {
 	w.Write(songsJSON)
 }
 
-// Create godoc
-// @Summary Get song text
-// @Description Get the text of a song by song ID
-// @Tags songs
-// @Accept  json
-// @Produce  json
-// @Param id query string true "Song ID"
-// @Param limit query string false "Number of lyrics to return"
-// @Param offset query string false "Offset from which to start returning lyrics"
-// @Success 201 {array} models.Lyric
-// @Router /text/ [get]
+// @Summary     Get song text
+// @Description Get the text of a song by ID with pagination
+// @Tags        songs
+// @Accept      json
+// @Produce     json
+// @Param       id query int true "Song ID"
+// @Param       limit query int false "Number of verses to return (default: 10)"
+// @Param       offset query int false "Number of verses to skip (default: 0)"
+// @Success     200 {object} models.Song
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
+// @Router      /api/v1/songs/text [get]
 func (h *songHandlers) GetText(w http.ResponseWriter, r *http.Request) {
 	// Get song ID from query parameters
 	id := r.URL.Query().Get("id")
@@ -218,7 +225,16 @@ func (h *songHandlers) GetText(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-// DeleteSongHandler handles the deletion of a song
+// @Summary     Delete song
+// @Description Delete a song by ID
+// @Tags        songs
+// @Accept      json
+// @Produce     plain
+// @Param       id query int true "Song ID"
+// @Success     200 {string} string "Song deleted successfully"
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
+// @Router      /api/v1/songs/ [delete]
 func (h *songHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	// Get the song ID from the URL parameters
 	id := r.URL.Query().Get("id")
@@ -248,7 +264,17 @@ func (h *songHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Song deleted successfully"))
 }
 
-// UpdateSongHandler handles the updating of a song
+// @Summary     Update song
+// @Description Update song details by ID
+// @Tags        songs
+// @Accept      json
+// @Produce     json
+// @Param       id query int true "Song ID"
+// @Param       request body models.UpdateSongRequest true "Song update request"
+// @Success     200 {object} models.Song
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
+// @Router      /api/v1/songs/ [put]
 func (h *songHandlers) Update(w http.ResponseWriter, r *http.Request) {
 	// Get the song ID from the URL parameters
 	id := r.URL.Query().Get("id")
@@ -290,24 +316,25 @@ func (h *songHandlers) Update(w http.ResponseWriter, r *http.Request) {
 		"message": "Song updated successfully",
 		"id":      id,
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 
-// Add godoc
-// @Summary Add new song
-// @Description Add a new song to the library with details from external API
-// @Tags Songs
-// @Accept json
-// @Produce json
-// @Param request body models.AddSongRequest true "Song request"
-// @Success 201 {object} models.Song
-// @Router / [post]
+// @Summary     Add new song
+// @Description Add a new song to the library
+// @Tags        songs
+// @Accept      json
+// @Produce     json
+// @Param       request body models.AddSongRequest true "Song request"
+// @Success     201 {object} models.Song
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+// @Router      /api/v1/songs/ [post]
 func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
+	// Decode request body
 	var request models.AddSongRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -326,35 +353,38 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare request to external API
-	externalReq, err := http.NewRequestWithContext(
-		r.Context(),
-		"GET",
-		h.cfg.MusicApi+"/info",
-		nil,
+	apiURL := fmt.Sprintf("%s/info?group=%s&song=%s",
+		h.cfg.MusicApi,
+		url.QueryEscape(request.Group),
+		url.QueryEscape(request.Song),
 	)
+
+	externalReq, err := http.NewRequestWithContext(r.Context(), "GET", apiURL, nil)
 	if err != nil {
 		h.logger.Error("failed to create external API request", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// Add query parameters
-	q := externalReq.URL.Query()
-	q.Add("group", request.Group)
-	q.Add("song", request.Song)
-	externalReq.URL.RawQuery = q.Encode()
-
 	// Make request to external API
 	resp, err := client.Do(externalReq)
 	if err != nil {
-		h.logger.Error("failed to make external API request", "error", err)
+		h.logger.Error("failed to make external API request", "error", err, "url", apiURL)
 		http.Error(w, "Failed to fetch song details", http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
+	// Check response status
+	if resp.StatusCode == http.StatusBadRequest {
+		http.Error(w, "Invalid song or group name", http.StatusBadRequest)
+		return
+	}
 	if resp.StatusCode != http.StatusOK {
-		h.logger.Error("external API returned non-200 status", "status", resp.StatusCode)
+		h.logger.Error("external API returned non-200 status",
+			"status", resp.StatusCode,
+			"url", apiURL,
+		)
 		http.Error(w, "Failed to fetch song details", http.StatusInternalServerError)
 		return
 	}
@@ -364,6 +394,17 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(resp.Body).Decode(&songDetail); err != nil {
 		h.logger.Error("failed to decode external API response", "error", err)
 		http.Error(w, "Failed to parse song details", http.StatusInternalServerError)
+		return
+	}
+
+	// Validate required fields from external API
+	if songDetail.ReleaseDate == "" || songDetail.Text == "" || songDetail.Link == "" {
+		h.logger.Error("external API returned incomplete data",
+			"releaseDate", songDetail.ReleaseDate,
+			"hasText", songDetail.Text != "",
+			"hasLink", songDetail.Link != "",
+		)
+		http.Error(w, "Incomplete song details received", http.StatusInternalServerError)
 		return
 	}
 
@@ -384,12 +425,11 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Return success response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-
 	if err := json.NewEncoder(w).Encode(createdSong); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
 }

@@ -1,3 +1,9 @@
+// @title           Music Library API
+// @version         1.0
+// @description     API Server for Music Library Application
+// @host      localhost:5000
+// @BasePath  /
+
 package main
 
 import (
@@ -7,6 +13,7 @@ import (
 	"musiclib/pkg/db/migrations"
 	"musiclib/pkg/db/postgres"
 	"musiclib/pkg/logger"
+	_ "musiclib/docs" // Import swagger docs
 	"os"
 	"path/filepath"
 )

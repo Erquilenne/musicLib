@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 const (
@@ -34,6 +35,12 @@ func NewServer(cfg *config.Config, db *sqlx.DB, logger logger.Logger) *Server {
 
 func (s *Server) Run() error {
 	router := mux.NewRouter()
+
+	// Register Swagger routes
+	router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"), // URL для JSON документации
+	))
+
 	server := &http.Server{
 		Addr:           s.cfg.Server.Port,
 		ReadTimeout:    time.Second * s.cfg.Server.ReadTimeout,
