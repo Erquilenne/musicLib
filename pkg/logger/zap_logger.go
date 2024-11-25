@@ -93,11 +93,15 @@ func (l *apiLogger) InitLogger() {
 // Logger methods
 
 func (l *apiLogger) Debug(args ...interface{}) {
-	l.sugarLogger.Debug(args...)
+	if l.cfg.Logger.EnableDebug {
+		l.sugarLogger.Debug(args...)
+	}
 }
 
 func (l *apiLogger) Debugf(template string, args ...interface{}) {
-	l.sugarLogger.Debugf(template, args...)
+	if l.cfg.Logger.EnableDebug {
+		l.sugarLogger.Debugf(template, args...)
+	}
 }
 
 func (l *apiLogger) Info(args ...interface{}) {

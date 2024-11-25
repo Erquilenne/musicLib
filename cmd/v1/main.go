@@ -2,18 +2,18 @@
 // @version         1.0
 // @description     API Server for Music Library Application
 // @host      localhost:5000
-// @BasePath  /
+// @BasePath  /api/v1
 
 package main
 
 import (
 	"log"
 	"musiclib/config"
+	_ "musiclib/docs" // Import swagger docs
 	"musiclib/internal/server"
 	"musiclib/pkg/db/migrations"
 	"musiclib/pkg/db/postgres"
 	"musiclib/pkg/logger"
-	_ "musiclib/docs" // Import swagger docs
 	"os"
 	"path/filepath"
 )

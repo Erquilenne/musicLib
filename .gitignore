@@ -25,3 +25,4 @@ postgres_data/
 # Environment files
 .env
 .env.local
+.env

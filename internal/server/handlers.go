@@ -10,7 +10,7 @@ import (
 // MapHandlers Map Server Handlers
 func (s *Server) MapHandlers(router *mux.Router) error {
 	// Init repository
-	songRepo := repository.NewSongRepository(s.db)
+	songRepo := repository.NewSongRepository(s.db, s.logger)
 
 	// Init handlers
 	songHandlers := songHttp.NewSongHandlers(s.cfg, s.logger, songRepo)

@@ -43,15 +43,16 @@ func NewSongHandlers(cfg *config.Config, logger logger.Logger, repo song.Reposit
 // @Success     200 {array} models.Song
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-// @Router      /api/v1/songs/list [get]
+// @Router      /songs/list [get]
 func (h *songHandlers) GetList(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Starting GetList handler")
 	// Get query parameters for sorting and pagination
 	sortBy := r.URL.Query().Get("sort_by")
 	sortOrder := r.URL.Query().Get("sort_order")
 	limit := r.URL.Query().Get("limit")
 	offset := r.URL.Query().Get("offset")
 
-	h.logger.Info("GetList request parameters",
+	h.logger.Debug("Raw query parameters",
 		"sortBy", sortBy,
 		"sortOrder", sortOrder,
 		"limit", limit,
@@ -72,6 +73,13 @@ func (h *songHandlers) GetList(w http.ResponseWriter, r *http.Request) {
 		offset = defaultOffset
 	}
 
+	h.logger.Debug("Normalized query parameters",
+		"sortBy", sortBy,
+		"sortOrder", sortOrder,
+		"limit", limit,
+		"offset", offset,
+	)
+
 	// Convert query parameters to integers
 	limitInt, err := strconv.Atoi(limit)
 	if err != nil {
@@ -86,6 +94,11 @@ func (h *songHandlers) GetList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Debug("Converted parameters",
+		"limitInt", limitInt,
+		"offsetInt", offsetInt,
+	)
+
 	// Get the list of songs from the repository
 	songs, err := h.songRepo.GetList(sortBy, sortOrder, limitInt, offsetInt)
 	if err != nil {
@@ -94,6 +107,10 @@ func (h *songHandlers) GetList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Debug("Retrieved songs from repository",
+		"count", len(songs),
+	)
+
 	// Marshal the songs to JSON
 	songsJSON, err := json.Marshal(songs)
 	if err != nil {
@@ -101,6 +118,10 @@ func (h *songHandlers) GetList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error marshaling songs to JSON", http.StatusInternalServerError)
 		return
 	}
+
+	h.logger.Debug("Successfully marshaled songs to JSON",
+		"bytesLength", len(songsJSON),
+	)
 
 	// Write the JSON response
 	w.Header().Set("Content-Type", "application/json")
@@ -118,7 +139,7 @@ func (h *songHandlers) GetList(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.Song
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
-// @Router      /api/v1/songs/text [get]
+// @Router      /songs/text [get]
 func (h *songHandlers) GetText(w http.ResponseWriter, r *http.Request) {
 	// Get song ID from query parameters
 	id := r.URL.Query().Get("id")
@@ -234,7 +255,7 @@ func (h *songHandlers) GetText(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "Song deleted successfully"
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
-// @Router      /api/v1/songs/ [delete]
+// @Router      /songs/ [delete]
 func (h *songHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	// Get the song ID from the URL parameters
 	id := r.URL.Query().Get("id")
@@ -274,7 +295,7 @@ func (h *songHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.Song
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
-// @Router      /api/v1/songs/ [put]
+// @Router      /songs/ [put]
 func (h *songHandlers) Update(w http.ResponseWriter, r *http.Request) {
 	// Get the song ID from the URL parameters
 	id := r.URL.Query().Get("id")
@@ -331,21 +352,35 @@ func (h *songHandlers) Update(w http.ResponseWriter, r *http.Request) {
 // @Success     201 {object} models.Song
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-// @Router      /api/v1/songs/ [post]
+// @Router      /songs/ [post]
 func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
-	// Decode request body
-	var request models.AddSongRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		h.logger.Error("failed to decode request body", "error", err)
+	h.logger.Debug("Starting Add handler")
+
+	var songRequest models.AddSongRequest
+	if err := json.NewDecoder(r.Body).Decode(&songRequest); err != nil {
+		h.logger.Error("Error decoding request body", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Validate required fields
-	if request.Group == "" || request.Song == "" {
-		http.Error(w, "Group and Song are required fields", http.StatusBadRequest)
+	h.logger.Debug("Received song request",
+		"group", songRequest.Group,
+		"song", songRequest.Song,
+	)
+
+	// Validate the request
+	if songRequest.Group == "" {
+		h.logger.Debug("Validation failed: empty Group")
+		http.Error(w, "Group is required", http.StatusBadRequest)
 		return
 	}
+	if songRequest.Song == "" {
+		h.logger.Debug("Validation failed: empty Song")
+		http.Error(w, "Song is required", http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Debug("Request validation passed")
 
 	// Create HTTP client with timeout
 	client := &http.Client{
@@ -354,14 +389,14 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare request to external API
 	apiURL := fmt.Sprintf("%s/info?group=%s&song=%s",
-		h.cfg.MusicApi,
-		url.QueryEscape(request.Group),
-		url.QueryEscape(request.Song),
+		h.cfg.MusicApi.URL,
+		url.QueryEscape(songRequest.Group),
+		url.QueryEscape(songRequest.Song),
 	)
 
 	externalReq, err := http.NewRequestWithContext(r.Context(), "GET", apiURL, nil)
 	if err != nil {
-		h.logger.Error("failed to create external API request", "error", err)
+		h.logger.Error("Failed to create external API request", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -369,7 +404,7 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 	// Make request to external API
 	resp, err := client.Do(externalReq)
 	if err != nil {
-		h.logger.Error("failed to make external API request", "error", err, "url", apiURL)
+		h.logger.Error("Failed to make external API request", "error", err, "url", apiURL)
 		http.Error(w, "Failed to fetch song details", http.StatusInternalServerError)
 		return
 	}
@@ -381,7 +416,7 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if resp.StatusCode != http.StatusOK {
-		h.logger.Error("external API returned non-200 status",
+		h.logger.Error("External API returned non-200 status",
 			"status", resp.StatusCode,
 			"url", apiURL,
 		)
@@ -392,14 +427,14 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 	// Parse external API response
 	var songDetail models.SongDetail
 	if err := json.NewDecoder(resp.Body).Decode(&songDetail); err != nil {
-		h.logger.Error("failed to decode external API response", "error", err)
+		h.logger.Error("Failed to decode external API response", "error", err)
 		http.Error(w, "Failed to parse song details", http.StatusInternalServerError)
 		return
 	}
 
 	// Validate required fields from external API
 	if songDetail.ReleaseDate == "" || songDetail.Text == "" || songDetail.Link == "" {
-		h.logger.Error("external API returned incomplete data",
+		h.logger.Error("External API returned incomplete data",
 			"releaseDate", songDetail.ReleaseDate,
 			"hasText", songDetail.Text != "",
 			"hasLink", songDetail.Link != "",
@@ -410,8 +445,8 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 
 	// Create song entity with combined data
 	song := &models.Song{
-		Group:       request.Group,
-		Song:        request.Song,
+		Group:       songRequest.Group,
+		Song:        songRequest.Song,
 		ReleaseDate: songDetail.ReleaseDate,
 		Text:        songDetail.Text,
 		Link:        songDetail.Link,
@@ -420,7 +455,7 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 	// Save to database
 	createdSong, err := h.songRepo.Create(r.Context(), song)
 	if err != nil {
-		h.logger.Error("failed to create song", "error", err)
+		h.logger.Error("Failed to create song", "error", err)
 		http.Error(w, "Failed to create song", http.StatusInternalServerError)
 		return
 	}
@@ -429,7 +464,7 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(createdSong); err != nil {
-		h.logger.Error("failed to encode response", "error", err)
+		h.logger.Error("Failed to encode response", "error", err)
 		return
 	}
 }

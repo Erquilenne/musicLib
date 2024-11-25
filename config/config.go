@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -12,7 +13,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Logger   Logger         `mapstructure:"logger"`
 	Server   ServerConfig   `mapstructure:"server"`
-	MusicApi string         `mapstructure:"music_api"`
+	MusicApi MusicApiConfig `mapstructure:"music_api"`
 }
 
 type DatabaseConfig struct {
@@ -37,23 +38,38 @@ type Logger struct {
 	DisableStacktrace bool   `mapstructure:"disable_stacktrace"`
 	Encoding          string `mapstructure:"encoding"`
 	Level             string `mapstructure:"level"`
+	EnableDebug       bool   `mapstructure:"enable_debug"`
+}
+
+type MusicApiConfig struct {
+	URL string `mapstructure:"url"`
 }
 
 func LoadConfig(filename string) (*viper.Viper, error) {
 	v := viper.New()
+
+	// Загружаем .env файл
+	v.SetConfigFile(".env")
+	if err := v.ReadInConfig(); err != nil {
+		log.Printf("Warning: .env file not found or error reading it: %v", err)
+	}
+
+	// Загружаем основной конфиг
 	v.SetConfigName(filename)
 	v.SetConfigType("json")
 	v.AddConfigPath(".")
-
 	v.AddConfigPath("./config")
 
+	// Автоматически читаем переменные окружения
 	v.AutomaticEnv()
+	v.SetEnvPrefix("MUSIC") // Префикс для переменных окружения
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // Заменяем точки на подчеркивания в именах
+
+	// Устанавливаем соответствие между переменными окружения и конфигом
+	v.BindEnv("music_api.url", "MUSIC_API_URL")
 
 	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return nil, err
-		}
-		return nil, err
+		return nil, fmt.Errorf("error reading config file: %v", err)
 	}
 
 	return v, nil
