@@ -2,7 +2,7 @@ run:
 	go run cmd/v1/main.go
 
 docker_build:
-	sudo docker compose up --build
+	sudo docker compose up -d --build
 
 docker_up:
 	sudo docker compose up -d

@@ -7,7 +7,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"musiclib/config"
 	_ "musiclib/docs" // Import swagger docs
@@ -33,7 +32,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("ParseConfig: %s", err)
 	}
-	fmt.Println(cfg)
 
 	appLogger := logger.NewApiLogger(cfg)
 	appLogger.InitLogger()

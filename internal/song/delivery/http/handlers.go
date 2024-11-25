@@ -1,8 +1,10 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"musiclib/config"
 	"musiclib/internal/models"
 	"musiclib/internal/song"
@@ -36,7 +38,7 @@ func NewSongHandlers(cfg *config.Config, logger logger.Logger, repo song.Reposit
 // @Tags        songs
 // @Accept      json
 // @Produce     json
-// @Param       sort_by query string false "Field to sort by (default: id)"
+// @Param       sort_by query string false "Field to sort by: group_name, song, id, release_date (default: id)"
 // @Param       sort_order query string false "Sort order: asc or desc (default: asc)"
 // @Param       limit query int false "Number of items to return (default: 10)"
 // @Param       offset query int false "Number of items to skip (default: 0)"
@@ -388,10 +390,10 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare request to external API
-	apiURL := fmt.Sprintf("%s/info?group=%s&song=%s",
+	apiURL := fmt.Sprintf("%s?group=%s&song=%s",
 		h.cfg.MusicApi.URL,
-		url.QueryEscape(songRequest.Group),
-		url.QueryEscape(songRequest.Song),
+		url.QueryEscape(strings.ToLower(songRequest.Group)),
+		url.QueryEscape(strings.ToLower(songRequest.Song)),
 	)
 
 	externalReq, err := http.NewRequestWithContext(r.Context(), "GET", apiURL, nil)
@@ -409,6 +411,23 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+
+	h.logger.Debug("External API response received",
+		"status", resp.StatusCode,
+		"url", apiURL,
+	)
+
+	// Read response body for logging
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		h.logger.Error("Failed to read response body", "error", err)
+		http.Error(w, "Failed to read song details", http.StatusInternalServerError)
+		return
+	}
+	h.logger.Debug("External API response body", "body", string(bodyBytes))
+
+	// Create new reader from bytes for json.Decoder
+	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	// Check response status
 	if resp.StatusCode == http.StatusBadRequest {
@@ -448,7 +467,7 @@ func (h *songHandlers) Add(w http.ResponseWriter, r *http.Request) {
 		Group:       songRequest.Group,
 		Song:        songRequest.Song,
 		ReleaseDate: songDetail.ReleaseDate,
-		Text:        songDetail.Text,
+		Text:        strings.ReplaceAll(songDetail.Text, "\n", "\\n"),
 		Link:        songDetail.Link,
 	}
 
