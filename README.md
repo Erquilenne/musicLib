@@ -30,4 +30,9 @@ make run
 ``` 
 
 ### Swagger
+generate swagger docs:
+```bash
+make swagger
+```
+open swagger docs:
 http://localhost:5000/swagger/index.html

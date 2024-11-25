@@ -26,3 +26,6 @@ postgres_data/
 .env
 .env.local
 .env
+
+# swagger
+swagger.json

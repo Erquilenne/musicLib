@@ -19,6 +19,5 @@ createdb:
 dropdb:
 	sudo docker compose exec db dropdb -U postgres musiclib
 
-.PHONY: swagger
 swagger:
-	swag init -g cmd/main.go --parseDependency --parseInternal
+	swag init -g cmd/v1/main.go --parseDependency --parseInternal
