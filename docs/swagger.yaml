@@ -1,0 +1,236 @@
+basePath: /api/v1
+definitions:
+  models.AddSongRequest:
+    properties:
+      group:
+        example: Beatles
+        type: string
+      song:
+        example: Yesterday
+        type: string
+    type: object
+  models.ErrorResponse:
+    properties:
+      message:
+        example: error message
+        type: string
+    type: object
+  models.Song:
+    properties:
+      group:
+        example: Beatles
+        type: string
+      id:
+        example: 1
+        type: integer
+      link:
+        example: https://example.com/song
+        type: string
+      releaseDate:
+        example: "1965-09-13"
+        type: string
+      song:
+        example: Yesterday
+        type: string
+      text:
+        example: Yesterday all my troubles seemed so far away...
+        type: string
+    type: object
+  models.UpdateSongRequest:
+    properties:
+      group:
+        example: Beatles
+        type: string
+      link:
+        example: https://example.com/song
+        type: string
+      releaseDate:
+        example: "1965-09-13"
+        type: string
+      song:
+        example: Yesterday
+        type: string
+      text:
+        example: Yesterday all my troubles seemed so far away...
+        type: string
+    type: object
+host: localhost:5000
+info:
+  contact: {}
+  description: API Server for Music Library Application
+  title: Music Library API
+  version: "1.0"
+paths:
+  /songs/:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a song by ID
+      parameters:
+      - description: Song ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Song deleted successfully
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete song
+      tags:
+      - songs
+    post:
+      consumes:
+      - application/json
+      description: Add a new song to the library
+      parameters:
+      - description: Song request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AddSongRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Song'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Add new song
+      tags:
+      - songs
+    put:
+      consumes:
+      - application/json
+      description: Update song details by ID
+      parameters:
+      - description: Song ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      - description: Song update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateSongRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Song'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update song
+      tags:
+      - songs
+  /songs/list:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated and sorted list of songs
+      parameters:
+      - description: 'Field to sort by: group_name, song, id, release_date (default:
+          id)'
+        in: query
+        name: sort_by
+        type: string
+      - description: 'Sort order: asc or desc (default: asc)'
+        in: query
+        name: sort_order
+        type: string
+      - description: 'Number of items to return (default: 10)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Number of items to skip (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Song'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List songs
+      tags:
+      - songs
+  /songs/text:
+    get:
+      consumes:
+      - application/json
+      description: Get the text of a song by ID with pagination
+      parameters:
+      - description: Song ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      - description: 'Number of verses to return (default: 10)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Number of verses to skip (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Song'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get song text
+      tags:
+      - songs
+swagger: "2.0"
