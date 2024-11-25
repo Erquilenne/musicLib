@@ -1,3 +1,6 @@
+run:
+	go run cmd/v1/main.go
+
 docker_build:
 	sudo docker compose up --build
 

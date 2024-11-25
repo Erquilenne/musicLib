@@ -21,24 +21,20 @@ const (
 	ctxTimeout     = 5
 )
 
-// Server struct
 type Server struct {
 	cfg    *config.Config
 	db     *sqlx.DB
 	logger logger.Logger
 }
 
-// NewServer New Server constructor
 func NewServer(cfg *config.Config, db *sqlx.DB, logger logger.Logger) *Server {
 	return &Server{cfg: cfg, db: db, logger: logger}
 }
 
 func (s *Server) Run() error {
 	router := mux.NewRouter()
-
-	// Register Swagger routes
 	router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
-		httpSwagger.URL("/swagger/doc.json"), // URL для JSON документации
+		httpSwagger.URL("/swagger/doc.json"),
 	))
 
 	server := &http.Server{

@@ -21,5 +21,7 @@
       "port": ":5000",
       "debug": false
     },
-    "music_api": "example.com"
+    "music_api": {
+      "url": "http://api.example.com"
+    }
 }

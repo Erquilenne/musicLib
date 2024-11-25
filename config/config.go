@@ -3,9 +3,11 @@ package config
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -49,9 +51,8 @@ func LoadConfig(filename string) (*viper.Viper, error) {
 	v := viper.New()
 
 	// Загружаем .env файл
-	v.SetConfigFile(".env")
-	if err := v.ReadInConfig(); err != nil {
-		log.Printf("Warning: .env file not found or error reading it: %v", err)
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: .env file not loaded: %v", err)
 	}
 
 	// Загружаем основной конфиг
@@ -60,16 +61,18 @@ func LoadConfig(filename string) (*viper.Viper, error) {
 	v.AddConfigPath(".")
 	v.AddConfigPath("./config")
 
-	// Автоматически читаем переменные окружения
-	v.AutomaticEnv()
-	v.SetEnvPrefix("MUSIC") // Префикс для переменных окружения
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // Заменяем точки на подчеркивания в именах
-
-	// Устанавливаем соответствие между переменными окружения и конфигом
-	v.BindEnv("music_api.url", "MUSIC_API_URL")
-
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("error reading config file: %v", err)
+	}
+
+	// Настраиваем поддержку переменных окружения
+	v.SetEnvPrefix("MUSIC")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+
+	// Устанавливаем значение из переменной окружения, если оно есть
+	if url := os.Getenv("MUSIC_API_URL"); url != "" {
+		v.Set("music_api.url", url)
 	}
 
 	return v, nil
